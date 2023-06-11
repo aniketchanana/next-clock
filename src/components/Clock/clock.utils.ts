@@ -1,6 +1,6 @@
 import { CLOCK_DIMENSION } from "./clock.constant";
 
-const polarToCartesianCoordinates = (
+export const polarToCartesianCoordinates = (
   radius: number,
   angleInDegrees: number
 ): { x: number; y: number } => {
