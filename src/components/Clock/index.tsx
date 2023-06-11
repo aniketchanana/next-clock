@@ -21,7 +21,7 @@ const Clock = () => {
       return;
     }
     const [hour, minute, second] = _time.map(Number);
-    if (hour <= 0) {
+    if (hour <= 0 || hour > 23) {
       return;
     } else if (minute > 60) {
       return;
