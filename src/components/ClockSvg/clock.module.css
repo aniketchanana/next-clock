@@ -1,0 +1,9 @@
+.clockHand {
+  stroke: #000;
+  stroke-width: 10px;
+  cursor: pointer;
+}
+
+.changeHandle {
+  cursor: grab;
+}

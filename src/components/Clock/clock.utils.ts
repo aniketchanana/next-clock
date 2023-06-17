@@ -2,12 +2,13 @@ import { CLOCK_DIMENSION } from "./clock.constant";
 
 export const polarToCartesianCoordinates = (
   radius: number,
-  angleInDegrees: number
+  angleInDegrees: number,
+  delta = 0
 ): { x: number; y: number } => {
   const radians = (angleInDegrees * Math.PI) / 180;
   return {
-    x: Math.round(radius * Math.cos(radians)),
-    y: Math.round(radius * Math.sin(radians)),
+    x: Math.round(radius * Math.cos(radians)) + delta,
+    y: Math.round(radius * Math.sin(radians)) + delta,
   };
 };
 export const drawClockStructure = (
@@ -68,4 +69,34 @@ export const drawHourHand = (
   ctx.lineTo(x, y);
 
   ctx.stroke();
+};
+
+export const getTheta = (
+  cx: number,
+  cy: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+) => {
+  // // const radius = Math.sqrt(x ^ (2 + y) ^ 2);
+  // const theta = Math.atan2(y, x);
+
+  // return { thetaInRad: theta, thetaInDeg: theta * (180 / Math.PI) };
+  // Calculate the vectors
+  var angle1 = Math.atan2(y1 - cy, x1 - cx);
+  var angle2 = Math.atan2(y2 - cy, x2 - cx);
+
+  // Adjust angles to be positive and in the clockwise direction
+  if (angle2 < angle1) {
+    angle2 += 2 * Math.PI; // Add 360 degrees in radians to make it larger
+  }
+
+  // Calculate the clockwise angle
+  var clockwiseAngle = angle2 - angle1;
+
+  // Convert the angle to degrees
+  var angleDegrees = (clockwiseAngle * 180) / Math.PI;
+
+  return angleDegrees;
 };
