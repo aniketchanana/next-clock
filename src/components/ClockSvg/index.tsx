@@ -20,9 +20,8 @@ enum HAND_NAME {
 const DELTA = 250;
 const ClockSvg = () => {
   const [date, setDate] = useState<Date>(new Date());
-  const [changeHandlePosition, setChangeHandlePosition] =
-    useState<ChangeHandle>(null);
-  const hoveredHand = useRef<string>("");
+  const [changeHandlePosition, setChangeHandlePosition] = useState<any>(null);
+  const [hoveredHand, setHoveredHand] = useState<string>("");
   const svgElement = useRef<any>(null);
   const selectedHandRef = useRef<string>("");
   const selectedHand = selectedHandRef.current;
@@ -46,7 +45,7 @@ const ClockSvg = () => {
   }
   const onTimeChangeStart = (e: any) => {
     e.target.style.cursor = "grabbing";
-    selectedHandRef.current = hoveredHand.current;
+    selectedHandRef.current = hoveredHand;
   };
   const onTimeChangeEnd = (e: any) => {
     const { clientX, clientY } = getCursorPosition(e);
@@ -88,14 +87,14 @@ const ClockSvg = () => {
     if (!!selectedHand) {
       return;
     }
-    if (selectedHand === HAND_NAME.HOUR) {
+    if (_hoveredHand === HAND_NAME.HOUR) {
       setChangeHandlePosition({ x: hourX, y: hourY });
-    } else if (selectedHand === HAND_NAME.MINUTE) {
+    } else if (_hoveredHand === HAND_NAME.MINUTE) {
       setChangeHandlePosition({ x: minuteX, y: minuteY });
-    } else if (selectedHand === HAND_NAME.SECOND) {
+    } else if (_hoveredHand === HAND_NAME.SECOND) {
       setChangeHandlePosition({ x: secondX, y: secondY });
     }
-    hoveredHand.current = _hoveredHand;
+    setHoveredHand(_hoveredHand);
   };
 
   useEffect(() => {
@@ -196,7 +195,7 @@ const ClockSvg = () => {
           className={clockStyles.clockHand}
           onMouseEnter={() => handleTimeSetting(HAND_NAME.HOUR)}
         />
-        {changeHandlePosition && selectedHand && (
+        {changeHandlePosition && hoveredHand && (
           <circle
             cx={changeHandlePosition.x}
             cy={changeHandlePosition.y}
