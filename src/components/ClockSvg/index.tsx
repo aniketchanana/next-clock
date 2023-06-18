@@ -18,13 +18,14 @@ enum HAND_NAME {
   SECOND = "SECOND",
 }
 const DELTA = 250;
+const HANDLE_RADIUS = 10;
 const ClockSvg = () => {
   const [date, setDate] = useState<Date>(new Date());
   const [changeHandlePosition, setChangeHandlePosition] = useState<any>(null);
-  const [hoveredHand, setHoveredHand] = useState<string>("");
+
   const svgElement = useRef<any>(null);
   const selectedHandRef = useRef<string>("");
-  const selectedHand = selectedHandRef.current;
+
   const { hoursPassed, minutePassed, secondPassed } = useMemo(() => {
     const hour = date.getHours();
     const h = hour > 12 ? hour % 12 : hour;
@@ -39,14 +40,77 @@ const ClockSvg = () => {
     };
   }, [date]);
 
-  function getCursorPosition(e: any) {
+  const { minuteHandEndX, minuteHandEndY } = useMemo(() => {
+    const { x: minuteX, y: minuteY } = polarToCartesianCoordinates(
+      RADIUS - 50,
+      minutePassed >= 15 ? (minutePassed - 15) * 6 : 270 + minutePassed * 6,
+      DELTA
+    );
+    const minuteHandEndX =
+      selectedHandRef.current === HAND_NAME.MINUTE && changeHandlePosition
+        ? changeHandlePosition.x
+        : minuteX;
+    const minuteHandEndY =
+      selectedHandRef.current === HAND_NAME.MINUTE && changeHandlePosition
+        ? changeHandlePosition.y
+        : minuteY;
+    return {
+      minuteHandEndY,
+      minuteHandEndX,
+    };
+  }, [changeHandlePosition, minutePassed]);
+
+  const { secondHandEndX, secondHandEndY } = useMemo(() => {
+    const { x: secondX, y: secondY } = polarToCartesianCoordinates(
+      RADIUS - 30,
+      secondPassed >= 15 ? (secondPassed - 15) * 6 : 270 + secondPassed * 6,
+      DELTA
+    );
+    const secondHandEndX =
+      selectedHandRef.current === HAND_NAME.SECOND && changeHandlePosition
+        ? changeHandlePosition.x
+        : secondX;
+    const secondHandEndY =
+      selectedHandRef.current === HAND_NAME.SECOND && changeHandlePosition
+        ? changeHandlePosition.y
+        : secondY;
+    return {
+      secondHandEndX,
+      secondHandEndY,
+    };
+  }, [changeHandlePosition, secondPassed]);
+
+  const { hourHandEndX, hourHandEndY } = useMemo(() => {
+    const { x: hourX, y: hourY } = polarToCartesianCoordinates(
+      RADIUS - 80,
+      hoursPassed >= 3 ? (hoursPassed - 3) * 30 : 270 + hoursPassed * 30,
+      DELTA
+    );
+    const hourHandEndX =
+      selectedHandRef.current === HAND_NAME.HOUR && changeHandlePosition
+        ? changeHandlePosition.x
+        : hourX;
+    const hourHandEndY =
+      selectedHandRef.current === HAND_NAME.HOUR && changeHandlePosition
+        ? changeHandlePosition.y
+        : hourY;
+
+    return {
+      hourHandEndX,
+      hourHandEndY,
+    };
+  }, [changeHandlePosition, hoursPassed]);
+
+  const getCursorPosition = (e: any) => {
     const box = svgElement.current.getBoundingClientRect();
     return { clientX: e.pageX - box.x, clientY: e.pageY - box.y };
-  }
-  const onTimeChangeStart = (e: any) => {
-    e.target.style.cursor = "grabbing";
-    selectedHandRef.current = hoveredHand;
   };
+
+  const onTimeChangeStart = (e: any, selectedHand: HAND_NAME) => {
+    e.target.style.cursor = "grabbing";
+    selectedHandRef.current = selectedHand;
+  };
+
   const onTimeChangeEnd = (e: any) => {
     const { clientX, clientY } = getCursorPosition(e);
     const thetaInDeg = getTheta(CENTER.X, CENTER.Y, 450, 250, clientX, clientY);
@@ -54,11 +118,11 @@ const ClockSvg = () => {
     let updatedHours = hoursPassed;
     let updateMinutes = minutePassed;
     let updatedSeconds = secondPassed;
-    if (selectedHand === HAND_NAME.HOUR) {
+    if (selectedHandRef.current === HAND_NAME.HOUR) {
       updatedHours = Math.round((thetaInDeg / 30 + 3) % 12);
-    } else if (selectedHand === HAND_NAME.MINUTE) {
+    } else if (selectedHandRef.current === HAND_NAME.MINUTE) {
       updateMinutes = Math.round((thetaInDeg / 6 + 15) % 60);
-    } else if (selectedHand === HAND_NAME.SECOND) {
+    } else if (selectedHandRef.current === HAND_NAME.SECOND) {
       updatedSeconds = Math.round((thetaInDeg / 6 + 15) % 60);
     }
     setDate(
@@ -72,8 +136,9 @@ const ClockSvg = () => {
     selectedHandRef.current = "";
     setChangeHandlePosition(null);
   };
+
   const updateHandlePosition = (e: any) => {
-    if (!selectedHand) {
+    if (!selectedHandRef.current) {
       return;
     }
 
@@ -83,22 +148,43 @@ const ClockSvg = () => {
       y: clientY,
     });
   };
-  const handleTimeSetting = (_hoveredHand: HAND_NAME) => {
-    if (!!selectedHand) {
-      return;
-    }
-    if (_hoveredHand === HAND_NAME.HOUR) {
-      setChangeHandlePosition({ x: hourX, y: hourY });
-    } else if (_hoveredHand === HAND_NAME.MINUTE) {
-      setChangeHandlePosition({ x: minuteX, y: minuteY });
-    } else if (_hoveredHand === HAND_NAME.SECOND) {
-      setChangeHandlePosition({ x: secondX, y: secondY });
-    }
-    setHoveredHand(_hoveredHand);
+
+  const getClockHand = (type: HAND_NAME) => {
+    const getCoords = () => {
+      if (type === HAND_NAME.SECOND) {
+        return [secondHandEndX, secondHandEndY];
+      } else if (type === HAND_NAME.MINUTE) {
+        return [minuteHandEndX, minuteHandEndY];
+      }
+      return [hourHandEndX, hourHandEndY];
+    };
+    const [endX, endY] = getCoords();
+    return (
+      <g>
+        <line
+          x1={CENTER.X}
+          y1={CENTER.Y}
+          x2={endX}
+          y2={endY}
+          className={clockStyles.clockHand}
+        />
+        <circle
+          cx={endX}
+          cy={endY}
+          r={HANDLE_RADIUS}
+          stroke="white"
+          strokeWidth="2"
+          className={clockStyles.changeHandle}
+          onMouseDown={(e: any) => onTimeChangeStart(e, type)}
+          onMouseUp={onTimeChangeEnd}
+          onMouseMove={updateHandlePosition}
+        />
+      </g>
+    );
   };
 
   useEffect(() => {
-    if (selectedHand) {
+    if (selectedHandRef.current) {
       return;
     }
     let counter = 1;
@@ -108,23 +194,7 @@ const ClockSvg = () => {
     }, 1000);
     return () => clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, selectedHand]);
-
-  const { x: secondX, y: secondY } = polarToCartesianCoordinates(
-    RADIUS - 30,
-    secondPassed >= 15 ? (secondPassed - 15) * 6 : 270 + secondPassed * 6,
-    DELTA
-  );
-  const { x: minuteX, y: minuteY } = polarToCartesianCoordinates(
-    RADIUS - 50,
-    minutePassed >= 15 ? (minutePassed - 15) * 6 : 270 + minutePassed * 6,
-    DELTA
-  );
-  const { x: hourX, y: hourY } = polarToCartesianCoordinates(
-    RADIUS - 60,
-    hoursPassed >= 3 ? (hoursPassed - 3) * 30 : 270 + hoursPassed * 30,
-    DELTA
-  );
+  }, [date, selectedHandRef.current]);
 
   return (
     <div>
@@ -143,71 +213,9 @@ const ClockSvg = () => {
           strokeWidth="1"
           fill="white"
         />
-        <line
-          x1={CENTER.X}
-          y1={CENTER.Y}
-          x2={
-            selectedHand === HAND_NAME.SECOND && changeHandlePosition
-              ? changeHandlePosition.x
-              : secondX
-          }
-          y2={
-            selectedHand === HAND_NAME.SECOND && changeHandlePosition
-              ? changeHandlePosition.y
-              : secondY
-          }
-          stroke="black"
-          strokeWidth="1"
-          className={clockStyles.clockHand}
-          onMouseEnter={() => handleTimeSetting(HAND_NAME.SECOND)}
-        />
-        <line
-          x1={CENTER.X}
-          y1={CENTER.Y}
-          x2={
-            selectedHand === HAND_NAME.MINUTE && changeHandlePosition
-              ? changeHandlePosition.x
-              : minuteX
-          }
-          y2={
-            selectedHand === HAND_NAME.MINUTE && changeHandlePosition
-              ? changeHandlePosition.y
-              : minuteY
-          }
-          stroke="black"
-          strokeWidth="1"
-          className={clockStyles.clockHand}
-          onMouseEnter={() => handleTimeSetting(HAND_NAME.MINUTE)}
-        />
-        <line
-          x1={CENTER.X}
-          y1={CENTER.Y}
-          x2={
-            selectedHand === HAND_NAME.HOUR && changeHandlePosition
-              ? changeHandlePosition.x
-              : hourX
-          }
-          y2={
-            selectedHand === HAND_NAME.HOUR && changeHandlePosition
-              ? changeHandlePosition.y
-              : hourY
-          }
-          className={clockStyles.clockHand}
-          onMouseEnter={() => handleTimeSetting(HAND_NAME.HOUR)}
-        />
-        {changeHandlePosition && hoveredHand && (
-          <circle
-            cx={changeHandlePosition.x}
-            cy={changeHandlePosition.y}
-            r={10}
-            stroke="white"
-            strokeWidth="2"
-            className={clockStyles.changeHandle}
-            onMouseDown={onTimeChangeStart}
-            onMouseUp={onTimeChangeEnd}
-            onMouseMove={updateHandlePosition}
-          />
-        )}
+        {getClockHand(HAND_NAME.HOUR)}
+        {getClockHand(HAND_NAME.MINUTE)}
+        {getClockHand(HAND_NAME.SECOND)}
       </svg>
       <input
         placeholder={`Enter time here ${hoursPassed}:${minutePassed}:${secondPassed}`}
