@@ -1,98 +1,247 @@
-import React, { useEffect, useRef, useState } from "react";
-import { CANVAS_DIMENSION, CLOCK_DIMENSION } from "./clock.constant";
-import { drawClockStructure, drawHand, drawHourHand } from "./clock.utils";
+import { use, useEffect, useMemo, useRef, useState } from "react";
+import { getTheta, polarToCartesianCoordinates } from "../Clock/clock.utils";
+import { getArcPath } from "./clockSvg.utils";
+import clockStyles from "./clock.module.css";
+import { time } from "console";
+const RADIUS = 200;
+const CENTER = {
+  X: 250,
+  Y: 250,
+};
+type ChangeHandle = null | {
+  x: number;
+  y: number;
+};
+enum HAND_NAME {
+  HOUR = "HOUR",
+  MINUTE = "MINUTE",
+  SECOND = "SECOND",
+}
+const DELTA = 250;
+const HANDLE_RADIUS = 10;
+const ClockSvg = () => {
+  const [date, setDate] = useState<Date>(new Date());
+  const [changeHandlePosition, setChangeHandlePosition] = useState<any>(null);
 
-const Clock = () => {
-  const clockRef = useRef<HTMLCanvasElement>(null);
-  const currTime = useRef(new Date());
-  const ctxRef = useRef<any>(null);
-  const hour = currTime.current.getHours();
-  const h = hour > 12 ? hour % 12 : hour;
-  const minute = currTime.current.getMinutes();
-  const second = currTime.current.getSeconds();
-  const [time, setTime] = useState(
-    `${h.toString().padStart(2, "0")}:${minute
-      .toString()
-      .padStart(2, "0")}:${second.toString().padStart(2, "0")}`
-  );
-  const updateTime = (time: string) => {
-    const _time = time.split(":");
-    if (_time.length < 3) {
-      return;
-    }
-    const [hour, minute, second] = _time.map(Number);
-    if (hour <= 0 || hour > 23) {
-      return;
-    } else if (minute > 60) {
-      return;
-    } else if (second > 60) {
-      return;
-    }
-    setTime(time);
+  const svgElement = useRef<any>(null);
+  const selectedHandRef = useRef<string>("");
+
+  const hoursPassed = useMemo(() => {
+    const hour = date.getHours();
+    const h = hour > 12 ? hour % 12 : hour;
+    return Number(h);
+  }, [date.getHours()]);
+  const minutePassed = Number(date.getMinutes());
+  const secondPassed = Number(date.getSeconds());
+
+  const { minuteHandEndX, minuteHandEndY } = useMemo(() => {
+    const { x: minuteX, y: minuteY } = polarToCartesianCoordinates(
+      RADIUS - 50,
+      minutePassed >= 15 ? (minutePassed - 15) * 6 : 270 + minutePassed * 6,
+      DELTA
+    );
+    const minuteHandEndX =
+      selectedHandRef.current === HAND_NAME.MINUTE && changeHandlePosition
+        ? changeHandlePosition.x
+        : minuteX;
+    const minuteHandEndY =
+      selectedHandRef.current === HAND_NAME.MINUTE && changeHandlePosition
+        ? changeHandlePosition.y
+        : minuteY;
+    return {
+      minuteHandEndY,
+      minuteHandEndX,
+    };
+  }, [changeHandlePosition, minutePassed]);
+
+  const { secondHandEndX, secondHandEndY } = useMemo(() => {
+    const { x: secondX, y: secondY } = polarToCartesianCoordinates(
+      RADIUS - 30,
+      secondPassed >= 15 ? (secondPassed - 15) * 6 : 270 + secondPassed * 6,
+      DELTA
+    );
+    const secondHandEndX =
+      selectedHandRef.current === HAND_NAME.SECOND && changeHandlePosition
+        ? changeHandlePosition.x
+        : secondX;
+    const secondHandEndY =
+      selectedHandRef.current === HAND_NAME.SECOND && changeHandlePosition
+        ? changeHandlePosition.y
+        : secondY;
+    return {
+      secondHandEndX,
+      secondHandEndY,
+    };
+  }, [changeHandlePosition, secondPassed]);
+
+  const { hourHandEndX, hourHandEndY } = useMemo(() => {
+    const { x: hourX, y: hourY } = polarToCartesianCoordinates(
+      RADIUS - 80,
+      hoursPassed >= 3 ? (hoursPassed - 3) * 30 : 270 + hoursPassed * 30,
+      DELTA
+    );
+    const hourHandEndX =
+      selectedHandRef.current === HAND_NAME.HOUR && changeHandlePosition
+        ? changeHandlePosition.x
+        : hourX;
+    const hourHandEndY =
+      selectedHandRef.current === HAND_NAME.HOUR && changeHandlePosition
+        ? changeHandlePosition.y
+        : hourY;
+
+    return {
+      hourHandEndX,
+      hourHandEndY,
+    };
+  }, [changeHandlePosition, hoursPassed]);
+
+  const getCursorPosition = (e: any) => {
+    const box = svgElement.current.getBoundingClientRect();
+    return { clientX: e.pageX - box.x, clientY: e.pageY - box.y };
+  };
+
+  const onTimeChangeStart = (e: any, selectedHand: HAND_NAME) => {
+    e.target.style.cursor = "grabbing";
+    selectedHandRef.current = selectedHand;
+  };
+
+  const onTimeChangeEnd = (e: any) => {
+    const { clientX, clientY } = getCursorPosition(e);
+    const thetaInDeg = getTheta(CENTER.X, CENTER.Y, 450, 250, clientX, clientY);
     const date = new Date();
-    currTime.current = new Date(
-      `${date.getMonth() + 1} ${date.getUTCDate()} ${time}`
+    let updatedHours = hoursPassed;
+    let updateMinutes = minutePassed;
+    let updatedSeconds = secondPassed;
+    if (selectedHandRef.current === HAND_NAME.HOUR) {
+      updatedHours = Math.round((thetaInDeg / 30 + 3) % 12);
+      updatedHours = updatedHours === 0 ? 12 : updatedHours;
+    } else if (selectedHandRef.current === HAND_NAME.MINUTE) {
+      updateMinutes = Math.round((thetaInDeg / 6 + 15) % 60);
+      updateMinutes = updateMinutes === 0 ? 60 : updateMinutes;
+    } else if (selectedHandRef.current === HAND_NAME.SECOND) {
+      updatedSeconds = Math.round((thetaInDeg / 6 + 15) % 60);
+      updatedSeconds = updatedSeconds === 0 ? 60 : updatedSeconds;
+    }
+    setDate(
+      new Date(
+        `${date.getMonth() + 1} ${date.getUTCDate()} ${Math.round(
+          updatedHours
+        )}:${updateMinutes}:${updatedSeconds}`
+      )
+    );
+    e.target.style.cursor = "grab";
+    selectedHandRef.current = "";
+    setChangeHandlePosition(null);
+  };
+
+  const updateHandlePosition = (e: any) => {
+    if (!selectedHandRef.current) {
+      return;
+    }
+
+    const { clientX, clientY } = getCursorPosition(e);
+    setChangeHandlePosition({
+      x: clientX,
+      y: clientY,
+    });
+  };
+
+  const getClockHand = (type: HAND_NAME) => {
+    const getCoords = () => {
+      if (type === HAND_NAME.SECOND) {
+        return [secondHandEndX, secondHandEndY];
+      } else if (type === HAND_NAME.MINUTE) {
+        return [minuteHandEndX, minuteHandEndY];
+      }
+      return [hourHandEndX, hourHandEndY];
+    };
+    const [endX, endY] = getCoords();
+    return (
+      <g>
+        <line
+          x1={CENTER.X}
+          y1={CENTER.Y}
+          x2={endX}
+          y2={endY}
+          className={clockStyles.clockHand}
+        />
+        <circle
+          cx={endX}
+          cy={endY}
+          r={HANDLE_RADIUS}
+          stroke="white"
+          strokeWidth="2"
+          className={clockStyles.changeHandle}
+          onMouseDown={(e: any) => onTimeChangeStart(e, type)}
+          onMouseUp={onTimeChangeEnd}
+          onMouseMove={updateHandlePosition}
+        />
+      </g>
     );
   };
+
+  const getTime = () => {
+    return `${hoursPassed.toString().padStart(2, "0")}:${minutePassed
+      .toString()
+      .padStart(2, "0")}:${secondPassed.toString().padStart(2, "0")}`;
+  };
   useEffect(() => {
-    if (clockRef && clockRef.current) {
-      const clock = clockRef.current;
-      if (!clockRef || !clock) {
-        return;
-      }
-      ctxRef.current = clock.getContext("2d");
-      if (!ctxRef.current) {
-        return;
-      }
-      const canvasCenterX = CANVAS_DIMENSION.WIDTH / 2;
-      const canvasCenterY = CANVAS_DIMENSION.HEIGHT / 2;
-      ctxRef.current.translate(canvasCenterX, canvasCenterY);
-    }
-  }, []);
-  useEffect(() => {
-    const ctx = ctxRef.current;
-    if (!ctx) {
+    if (selectedHandRef.current) {
       return;
     }
-    drawClockStructure(ctx, CLOCK_DIMENSION.RADIUS);
-    drawClockStructure(ctx, CLOCK_DIMENSION.RADIUS - 10);
-    const [_hour, _minute, _second] = time.split(":").map(Number);
-    drawHand(ctx, 0, 0, _second, true);
-    drawHand(ctx, 0, 0, _minute, false);
-    drawHourHand(ctx, 0, 0, _hour > 12 ? _hour % 12 : _hour);
-  }, [time]);
-  useEffect(() => {
+    let counter = 1;
     const intervalId = setInterval(() => {
-      currTime.current = new Date(currTime.current.getTime() + 1000);
-      const hour = currTime.current.getHours();
-      const h = hour > 12 ? hour % 12 : hour;
-      const minute = currTime.current.getMinutes();
-      const second = currTime.current.getSeconds();
-      setTime(
-        `${h.toString().padStart(2, "0")}:${minute
-          .toString()
-          .padStart(2, "0")}:${second.toString().padStart(2, "0")}`
-      );
+      setDate(new Date(date.getTime() + counter * 1000));
+      counter++;
     }, 1000);
-    () => {
-      clearInterval(intervalId);
-    };
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, selectedHandRef.current]);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", updateHandlePosition);
+    return () => window.removeEventListener("mousemove", updateHandlePosition);
   }, []);
+
+  const time = getTime();
+  console.log(time);
   return (
-    <div className="flex items-center flex-col">
-      <canvas
-        ref={clockRef}
-        height={CANVAS_DIMENSION.HEIGHT}
-        width={CANVAS_DIMENSION.WIDTH}
-        className="border border-black mb-3"
-      ></canvas>
+    <div>
+      <svg
+        ref={svgElement}
+        height="500"
+        width="500"
+        viewBox="0 0 500 500"
+        style={{ border: "1px solid black" }}
+      >
+        <circle
+          cx={CENTER.X}
+          cy={CENTER.Y}
+          r={RADIUS}
+          stroke="black"
+          strokeWidth="1"
+          fill="white"
+        />
+        {getClockHand(HAND_NAME.HOUR)}
+        {getClockHand(HAND_NAME.MINUTE)}
+        {getClockHand(HAND_NAME.SECOND)}
+      </svg>
       <input
-        placeholder={`${time} (Enter time)`}
-        onBlur={(e) => updateTime(e.target.value)}
-        className="w-full border"
+        placeholder={`Enter time here ${time}`}
+        className="w-full mt-4"
+        onBlur={(e) => {
+          if (!e.target.value) return;
+          const date = new Date();
+
+          setDate(
+            new Date(
+              `${date.getMonth() + 1} ${date.getUTCDate()} ${e.target.value}`
+            )
+          );
+        }}
       />
     </div>
   );
 };
 
-export default Clock;
+export default ClockSvg;
