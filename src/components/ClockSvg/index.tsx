@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getTheta, polarToCartesianCoordinates } from "../Clock/clock.utils";
 import clockStyles from "./clock.module.css";
 const RADIUS = 200;
@@ -23,9 +23,9 @@ const ClockSvg = () => {
 
   const hoursPassed = useMemo(() => {
     const hour = date.getHours();
-    const h = hour > 12 ? hour % 12 : hour;
+    const h = hour > 12 ? hour % 12 : hour || 12;
     return Number(h);
-  }, [date.getHours()]);
+  }, [date]);
   const minutePassed = Number(date.getMinutes());
   const secondPassed = Number(date.getSeconds());
 
@@ -129,7 +129,7 @@ const ClockSvg = () => {
     setChangeHandlePosition(null);
   };
 
-  const updateHandlePosition = (e: any) => {
+  const updateHandlePosition = useCallback((e: any) => {
     if (!selectedHandRef.current) {
       return;
     }
@@ -139,7 +139,7 @@ const ClockSvg = () => {
       x: clientX,
       y: clientY,
     });
-  };
+  }, []);
 
   const getClockHand = (type: HAND_NAME) => {
     const getCoords = () => {
@@ -196,10 +196,9 @@ const ClockSvg = () => {
   useEffect(() => {
     window.addEventListener("mousemove", updateHandlePosition);
     return () => window.removeEventListener("mousemove", updateHandlePosition);
-  }, []);
+  }, [updateHandlePosition]);
 
   const time = getTime();
-  console.log(time);
   return (
     <div>
       <svg
