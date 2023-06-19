@@ -1,17 +1,12 @@
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getTheta, polarToCartesianCoordinates } from "../Clock/clock.utils";
-import { getArcPath } from "./clockSvg.utils";
 import clockStyles from "./clock.module.css";
-import { time } from "console";
 const RADIUS = 200;
 const CENTER = {
   X: 250,
   Y: 250,
 };
-type ChangeHandle = null | {
-  x: number;
-  y: number;
-};
+
 enum HAND_NAME {
   HOUR = "HOUR",
   MINUTE = "MINUTE",
